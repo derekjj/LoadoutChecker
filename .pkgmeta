@@ -1,0 +1,10 @@
+package-as: LoadoutCheck
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+ignore:
+  - media
+  - README.md
+  - CHANGELOG.md
