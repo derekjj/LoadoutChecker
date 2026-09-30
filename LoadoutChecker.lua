@@ -131,14 +131,16 @@ local function NameMatches(name, keywords)
     return false
 end
 
--- First saved loadout for this spec whose name matches a keyword
-local function FindMatchingLoadout(specID, keywords)
+-- Saved loadouts for this spec whose names match a keyword, in Blizzard's order
+local function FindMatchingLoadouts(specID, keywords)
+    local matches = {}
     for _, configID in ipairs(C_ClassTalents.GetConfigIDsBySpecID(specID) or {}) do
         local info = C_Traits.GetConfigInfo(configID)
         if info and info.name and NameMatches(info.name, keywords) then
-            return configID, info.name
+            table.insert(matches, { configID = configID, name = info.name })
         end
     end
+    return matches
 end
 
 ---------------------------------------------------------------------------
@@ -147,10 +149,11 @@ end
 
 local pendingSwitchName
 
+-- Returns true if the switch was started
 local function SwitchToLoadout(configID, specID)
     if InCombatLockdown() then
         Print("Can't change talents in combat.")
-        return
+        return false
     end
 
     local info = C_Traits.GetConfigInfo(configID)
@@ -169,37 +172,106 @@ local function SwitchToLoadout(configID, specID)
         C_ClassTalents.LoadConfig(configID, true)
         C_ClassTalents.UpdateLastSelectedSavedConfigID(specID, configID)
     end
+    return true
 end
 
-local POPUP_DEFAULTS = {
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-}
+---------------------------------------------------------------------------
+-- Mismatch popup (one button per matching loadout)
+---------------------------------------------------------------------------
 
--- No matching loadout saved: can only tell the player what to look for
-StaticPopupDialogs["LOADOUTCHECKER_MISMATCH"] = CreateFromMixins(POPUP_DEFAULTS, {
-    text = "|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nPlease switch to a '%s' loadout.",
-    button1 = "Close",
-    OnAccept = StopGlow,
-    OnCancel = StopGlow,
-})
+local POPUP_WIDTH = 320
+local BUTTON_WIDTH = 240
+local BUTTON_HEIGHT = 24
+local BUTTON_SPACING = 4
 
--- A matching loadout exists: offer to switch to it
-StaticPopupDialogs["LOADOUTCHECKER_SWITCH"] = CreateFromMixins(POPUP_DEFAULTS, {
-    text = "|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nSwitch to '%s'?",
-    button1 = "Switch",
-    button2 = "Ignore",
-    OnAccept = function(_, data)
-        StopGlow()
-        SwitchToLoadout(data.configID, data.specID)
-    end,
-    OnCancel = StopGlow,
-})
+local popup
+
+local function GetPopup()
+    if popup then return popup end
+
+    popup = CreateFrame("Frame", "LoadoutCheckerPopup", UIParent, "BackdropTemplate")
+    popup:SetWidth(POPUP_WIDTH)
+    popup:SetPoint("TOP", 0, -135)
+    popup:SetFrameStrata("DIALOG")
+    popup:SetToplevel(true)
+    popup:SetClampedToScreen(true)
+    popup:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 32,
+        insets = { left = 11, right = 12, top = 12, bottom = 11 },
+    })
+
+    -- Draggable, in case it covers something
+    popup:EnableMouse(true)
+    popup:SetMovable(true)
+    popup:RegisterForDrag("LeftButton")
+    popup:SetScript("OnDragStart", popup.StartMoving)
+    popup:SetScript("OnDragStop", popup.StopMovingOrSizing)
+
+    popup.text = popup:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    popup.text:SetPoint("TOP", 0, -22)
+    popup.text:SetWidth(POPUP_WIDTH - 40)
+
+    popup.loadoutButtons = {}
+
+    popup.closeButton = CreateFrame("Button", nil, popup, "UIPanelButtonTemplate")
+    popup.closeButton:SetSize(120, 22)
+    popup.closeButton:SetScript("OnClick", function() popup:Hide() end)
+
+    -- Escape closes it; closing it any way stops the glow
+    table.insert(UISpecialFrames, "LoadoutCheckerPopup")
+    popup:SetScript("OnHide", StopGlow)
+
+    popup:Hide()
+    return popup
+end
+
+local function ShowPopup(currentName, wanted, matches, specID)
+    local p = GetPopup()
+
+    if #matches > 0 then
+        p.text:SetFormattedText("|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nSwitch to:", currentName)
+    else
+        p.text:SetFormattedText("|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nPlease switch to a '%s' loadout.", currentName, wanted)
+    end
+
+    local y = -22 - p.text:GetStringHeight() - 12
+
+    for i, match in ipairs(matches) do
+        local button = p.loadoutButtons[i]
+        if not button then
+            button = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
+            button:SetSize(BUTTON_WIDTH, BUTTON_HEIGHT)
+            p.loadoutButtons[i] = button
+        end
+        button:SetText(match.name)
+        button:SetScript("OnClick", function()
+            if SwitchToLoadout(match.configID, specID) then
+                p:Hide()
+            end
+        end)
+        button:ClearAllPoints()
+        button:SetPoint("TOP", 0, y)
+        button:Show()
+        y = y - BUTTON_HEIGHT - BUTTON_SPACING
+    end
+    for i = #matches + 1, #p.loadoutButtons do
+        p.loadoutButtons[i]:Hide()
+    end
+
+    y = y - 8
+    p.closeButton:SetText(#matches > 0 and "Ignore" or "Close")
+    p.closeButton:ClearAllPoints()
+    p.closeButton:SetPoint("TOP", 0, y)
+    y = y - p.closeButton:GetHeight()
+
+    p:SetHeight(-y + 20)
+    p:Show()
+end
 
 local function HidePopups()
-    StaticPopup_Hide("LOADOUTCHECKER_MISMATCH")
-    StaticPopup_Hide("LOADOUTCHECKER_SWITCH")
+    if popup then popup:Hide() end
 end
 
 local function ValidateLoadout()
@@ -221,16 +293,10 @@ local function ValidateLoadout()
     end
 
     local wanted = table.concat(keywords, "' / '")
-    local matchID, matchName = FindMatchingLoadout(specID, keywords)
 
     if db.playSound then PlaySound(8959) end
     if db.showPopup then
-        HidePopups()
-        if matchID then
-            StaticPopup_Show("LOADOUTCHECKER_SWITCH", currentName, matchName, { configID = matchID, specID = specID })
-        else
-            StaticPopup_Show("LOADOUTCHECKER_MISMATCH", currentName, wanted)
-        end
+        ShowPopup(currentName, wanted, FindMatchingLoadouts(specID, keywords), specID)
     end
     if db.showGlow then TriggerGlow() end
     if db.chatOnMismatch then

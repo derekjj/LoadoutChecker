@@ -9,7 +9,7 @@
 - **Automatic Validation:** Checks your talent loadout the moment a **Ready Check** goes out.
 - **Context Awareness:** Knows whether you're in a Dungeon (M+), Raid, PvP (Arenas & Battlegrounds) or a Delve. Still in town when the ready check goes out? It uses your group type to guess: raid group means raid, party means dungeon.
 - **Visual & Audio Alerts:** A warning sound, a popup, and a flashing micro menu (as seen in the screenshots) when your loadout doesn't match.
-- **One-Click Switch:** If you have a saved loadout that matches (e.g. "Raid ST"), the popup offers to switch to it for you.
+- **One-Click Switch:** The popup lists your saved loadouts that match (e.g. "M+" and "M+ AoE"). Click the one you want and it loads it for you.
 - **Works Out of the Box:** Just name your loadouts. No setup required.
 - **Customizable:** Use your own keywords, turn off any content type, and choose which alerts you want.
 
@@ -26,7 +26,7 @@ Loadout Checker looks at the name of your active loadout for a keyword. By defau
 
 Matching ignores upper and lower case, so "Raid ST", "M+ AoE" and "pvp - arena" all work.
 
-If a mismatch is found, a popup appears and your micro menu flashes until you close the popup, change talents, or enter combat. If one of your saved loadouts for your current spec matches, the popup has a **Switch** button that loads it for you. Talents can only be changed out of combat, and not during a boss fight or once a Mythic+ key has started.
+If a mismatch is found, a popup appears and your micro menu flashes until you close the popup, change talents, or enter combat. If any of your saved loadouts for your current spec match, the popup shows a button for each one. Click one to switch to it. Talents can only be changed out of combat, and not during a boss fight or once a Mythic+ key has started.
 
 ## Settings
 
