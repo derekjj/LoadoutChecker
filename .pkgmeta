@@ -1,4 +1,4 @@
-package-as: LoadoutCheck
+package-as: LoadoutChecker
 
 manual-changelog:
   filename: CHANGELOG.md

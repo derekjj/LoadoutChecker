@@ -1,7 +1,7 @@
 # Copies the addon from this repo into the WoW AddOns folder for in-game testing.
 # Usage: .\deploy.ps1            (then /reload in game)
 param(
-    [string]$Target = "C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns\LoadoutCheck"
+    [string]$Target = "C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns\LoadoutChecker"
 )
 
 $source = $PSScriptRoot

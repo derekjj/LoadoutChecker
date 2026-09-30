@@ -9,6 +9,7 @@
 - Fixed: Raid ready checks outside the instance (e.g. in town) expected an M+ loadout
 - Fixed: Lua errors with no spec selected, Starter Build, or unsaved loadouts
 - Changed: "Valid loadout" chat message is now off by default
+- Changed: Renamed to "Loadout Checker" (folder LoadoutChecker, /loadoutchecker) to avoid clashing with a different addon called LoadoutCheck. /lc still works.
 - Updated for 12.1.0
 
 ## v1.0.0

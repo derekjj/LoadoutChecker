@@ -45,7 +45,7 @@ local function ApplyDefaults(target, defaults)
 end
 
 local function Print(msg)
-    print("|cFF33CCFF[LoadoutCheck]:|r " .. msg)
+    print("|cFF33CCFF[Loadout Checker]:|r " .. msg)
 end
 
 ---------------------------------------------------------------------------
@@ -84,7 +84,7 @@ local function TriggerGlow()
     UIFrameFlash(glowFrame, 0.5, 0.5, -1, true, 0, 0)
 end
 
-StaticPopupDialogs["LOADOUT_MANUAL_FIX"] = {
+StaticPopupDialogs["LOADOUTCHECKER_MISMATCH"] = {
     text = "|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nPlease switch to a '%s' loadout.",
     button1 = "Close",
     OnAccept = StopGlow,
@@ -161,7 +161,7 @@ local function ValidateLoadout()
 
     local wanted = table.concat(keywords, "' / '")
     if db.playSound then PlaySound(8959) end
-    if db.showPopup then StaticPopup_Show("LOADOUT_MANUAL_FIX", currentName, wanted) end
+    if db.showPopup then StaticPopup_Show("LOADOUTCHECKER_MISMATCH", currentName, wanted) end
     if db.showGlow then TriggerGlow() end
     if db.chatOnMismatch then
         Print("|cFFFF0000Mismatch!|r You are on '" .. currentName .. "', expected '" .. wanted .. "'.")
@@ -220,7 +220,7 @@ local function BuildSettingsPanel()
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("LoadoutCheck")
+    title:SetText("Loadout Checker")
 
     local subtitle = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
@@ -297,13 +297,13 @@ local function BuildSettingsPanel()
         for _, w in ipairs(widgets) do w:Refresh() end
     end)
 
-    settingsCategory = Settings.RegisterCanvasLayoutCategory(panel, "LoadoutCheck")
+    settingsCategory = Settings.RegisterCanvasLayoutCategory(panel, "Loadout Checker")
     Settings.RegisterAddOnCategory(settingsCategory)
 end
 
-SLASH_LOADOUTCHECK1 = "/loadoutcheck"
-SLASH_LOADOUTCHECK2 = "/lc"
-SlashCmdList.LOADOUTCHECK = function(msg)
+SLASH_LOADOUTCHECKER1 = "/loadoutchecker"
+SLASH_LOADOUTCHECKER2 = "/lc"
+SlashCmdList.LOADOUTCHECKER = function(msg)
     msg = strtrim(msg or ""):lower()
     if msg == "check" then
         ValidateLoadout()
@@ -325,8 +325,8 @@ frame:RegisterEvent("TRAIT_CONFIG_UPDATED") -- Fires when you actually change ta
 frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON_NAME then return end
-        LoadoutCheckDB = LoadoutCheckDB or {}
-        db = LoadoutCheckDB
+        LoadoutCheckerDB = LoadoutCheckerDB or {}
+        db = LoadoutCheckerDB
         ApplyDefaults(db, DEFAULTS)
         BuildSettingsPanel()
         self:UnregisterEvent("ADDON_LOADED")

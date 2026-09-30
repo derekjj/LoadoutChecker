@@ -1,8 +1,8 @@
-<p align="center"><img src="media/Icon.png" width="128" alt="LoadoutCheck icon"></p>
+<p align="center"><img src="media/Icon.png" width="128" alt="Loadout Checker icon"></p>
 
-# LoadoutCheck
+# Loadout Checker
 
-**LoadoutCheck** is a lightweight utility designed to prevent that "oops" moment when you pull a boss with your Mythic+ talents still active in a raid.
+**Loadout Checker** is a lightweight utility designed to prevent that "oops" moment when you pull a boss with your Mythic+ talents still active in a raid.
 
 ## Features
 
@@ -14,7 +14,7 @@
 
 ## How to use
 
-LoadoutCheck looks at the name of your active loadout for a keyword. By default:
+Loadout Checker looks at the name of your active loadout for a keyword. By default:
 
 | Content | Your loadout name should contain |
 |---|---|
@@ -29,7 +29,7 @@ If a mismatch is found, a popup appears and your micro menu flashes until you cl
 
 ## Settings
 
-Open the settings with **/lc** (or **Options → AddOns → LoadoutCheck**).
+Open the settings with **/lc** (or **Options → AddOns → Loadout Checker**).
 
 - **Custom keywords:** Name your builds differently? Add your own keywords, separated by commas. For example, `m+, keys, mythic` for dungeons means any loadout name containing one of those words counts.
 - **Turn content types on or off:** For example, turn off Delves if you don't care about them.
@@ -37,12 +37,12 @@ Open the settings with **/lc** (or **Options → AddOns → LoadoutCheck**).
 
 ## Commands
 
-- `/lc` or `/loadoutcheck`: open the settings
+- `/lc` or `/loadoutchecker`: open the settings
 - `/lc check`: run a check right now, no ready check needed
 
 ## Feedback
 
-Found a bug or have an idea? [Open an issue on GitHub](https://github.com/derekjj/LoadoutCheck/issues).
+Found a bug or have an idea? [Open an issue on GitHub](https://github.com/derekjj/LoadoutChecker/issues).
 
 ## License
 
