@@ -43,3 +43,7 @@ Open the settings with **/lc** (or **Options → AddOns → LoadoutCheck**).
 ## Feedback
 
 Found a bug or have an idea? [Open an issue on GitHub](https://github.com/derekjj/LoadoutCheck/issues).
+
+## License
+
+[MIT](LICENSE) © Derek Johnston (Bigbranch). Feel free to use, fork and modify it; just keep the credit.

@@ -8,3 +8,5 @@ ignore:
   - media
   - README.md
   - CHANGELOG.md
+  - LICENSE
+  - deploy.ps1

@@ -2,8 +2,10 @@
 ## Title: LoadoutCheck
 ## Notes: Alerts you if your talent loadout doesn't match your current activity (M+, Raid, PvP, Delves).
 ## Author: Bigbranch
-## Version: 1.1.0
+## Version: @project-version@
 ## IconTexture: Interface\Icons\INV_Misc_Gear_01
 ## SavedVariables: LoadoutCheckDB
+## X-Curse-Project-ID: 1470164
+## X-License: MIT
 
 LoadoutCheck.lua
