@@ -179,12 +179,61 @@ end
 -- Mismatch popup (one button per matching loadout)
 ---------------------------------------------------------------------------
 
-local POPUP_WIDTH = 320
-local BUTTON_WIDTH = 240
-local BUTTON_HEIGHT = 24
-local BUTTON_SPACING = 4
+local POPUP_WIDTH = 300
+local PADDING = 16
+local ICON_SIZE = 32
+local BUTTON_HEIGHT = 28
+local BUTTON_SPACING = 6
+local WHITE = "Interface\\Buttons\\WHITE8x8"
+local ACCENT = { 1, 0.35, 0.2 }
+local BUTTON_BG = { 1, 1, 1, 0.06 }
+local BUTTON_BORDER = { 1, 1, 1, 0.15 }
 
 local popup
+
+local function ApplyFlatBackdrop(frame, bg, border)
+    frame:SetBackdrop({ bgFile = WHITE, edgeFile = WHITE, edgeSize = 1 })
+    frame:SetBackdropColor(unpack(bg))
+    frame:SetBackdropBorderColor(unpack(border))
+end
+
+local function GetPlayerClassColor()
+    local _, class = UnitClass("player")
+    local color = (C_ClassColor and C_ClassColor.GetClassColor(class)) or RAID_CLASS_COLORS[class]
+    if color then return color.r, color.g, color.b end
+    return 1, 0.82, 0
+end
+
+-- Flat button that lights up in the player's class color on hover
+local function CreateFlatButton(parent)
+    local button = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    button:SetHeight(BUTTON_HEIGHT)
+    ApplyFlatBackdrop(button, BUTTON_BG, BUTTON_BORDER)
+
+    button.label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    button.label:SetPoint("LEFT", 10, 0)
+    button.label:SetPoint("RIGHT", -10, 0)
+    button.label:SetWordWrap(false)
+
+    button:SetScript("OnEnter", function(self)
+        local r, g, b = GetPlayerClassColor()
+        self:SetBackdropColor(r, g, b, 0.25)
+        self:SetBackdropBorderColor(r, g, b, 1)
+    end)
+    button:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(unpack(BUTTON_BG))
+        self:SetBackdropBorderColor(unpack(BUTTON_BORDER))
+    end)
+    return button
+end
+
+local function OpenTalents()
+    if PlayerSpellsUtil and PlayerSpellsUtil.OpenToClassTalentsTab then
+        PlayerSpellsUtil.OpenToClassTalentsTab()
+        return true
+    end
+    return false
+end
 
 local function GetPopup()
     if popup then return popup end
@@ -195,12 +244,7 @@ local function GetPopup()
     popup:SetFrameStrata("DIALOG")
     popup:SetToplevel(true)
     popup:SetClampedToScreen(true)
-    popup:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
-    })
+    ApplyFlatBackdrop(popup, { 0.05, 0.05, 0.07, 0.95 }, { 0, 0, 0, 1 })
 
     -- Draggable, in case it covers something
     popup:EnableMouse(true)
@@ -209,15 +253,60 @@ local function GetPopup()
     popup:SetScript("OnDragStart", popup.StartMoving)
     popup:SetScript("OnDragStop", popup.StopMovingOrSizing)
 
-    popup.text = popup:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    popup.text:SetPoint("TOP", 0, -22)
-    popup.text:SetWidth(POPUP_WIDTH - 40)
+    local accent = popup:CreateTexture(nil, "ARTWORK")
+    accent:SetColorTexture(unpack(ACCENT))
+    accent:SetPoint("TOPLEFT", 1, -1)
+    accent:SetPoint("TOPRIGHT", -1, -1)
+    accent:SetHeight(2)
+
+    popup.icon = popup:CreateTexture(nil, "ARTWORK")
+    popup.icon:SetSize(ICON_SIZE, ICON_SIZE)
+    popup.icon:SetPoint("TOPLEFT", PADDING, -PADDING)
+    popup.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+    popup.title = popup:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    popup.title:SetPoint("TOPLEFT", popup.icon, "TOPRIGHT", 10, -1)
+    popup.title:SetText("Loadout Mismatch")
+    popup.title:SetTextColor(unpack(ACCENT))
+
+    popup.subtitle = popup:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    popup.subtitle:SetPoint("TOPLEFT", popup.title, "BOTTOMLEFT", 0, -4)
+    popup.subtitle:SetWidth(POPUP_WIDTH - PADDING * 2 - ICON_SIZE - 10)
+    popup.subtitle:SetJustifyH("LEFT")
+    popup.subtitle:SetTextColor(0.75, 0.75, 0.75)
+
+    local close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -2, -4)
+    close:SetScript("OnClick", function() popup:Hide() end)
+
+    popup.prompt = popup:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+    popup.prompt:SetWidth(POPUP_WIDTH - PADDING * 2)
+    popup.prompt:SetJustifyH("LEFT")
+    popup.prompt:SetTextColor(0.6, 0.6, 0.6)
 
     popup.loadoutButtons = {}
 
-    popup.closeButton = CreateFrame("Button", nil, popup, "UIPanelButtonTemplate")
-    popup.closeButton:SetSize(120, 22)
-    popup.closeButton:SetScript("OnClick", function() popup:Hide() end)
+    popup.talentsButton = CreateFlatButton(popup)
+    popup.talentsButton.label:SetText("Open Talents")
+    popup.talentsButton:SetScript("OnClick", function()
+        popup:Hide()
+        OpenTalents()
+    end)
+
+    -- Low-key text button, so the loadouts are the obvious choice
+    popup.dismissButton = CreateFrame("Button", nil, popup)
+    popup.dismissButton:SetSize(80, 20)
+    popup.dismissButton.label = popup.dismissButton:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    popup.dismissButton.label:SetPoint("RIGHT")
+    popup.dismissButton:SetScript("OnEnter", function(self) self.label:SetTextColor(1, 1, 1) end)
+    popup.dismissButton:SetScript("OnLeave", function(self) self.label:SetTextColor(0.5, 0.5, 0.5) end)
+    popup.dismissButton:SetScript("OnClick", function() popup:Hide() end)
+
+    popup.fadeIn = popup:CreateAnimationGroup()
+    local fade = popup.fadeIn:CreateAnimation("Alpha")
+    fade:SetFromAlpha(0)
+    fade:SetToAlpha(1)
+    fade:SetDuration(0.15)
 
     -- Escape closes it; closing it any way stops the glow
     table.insert(UISpecialFrames, "LoadoutCheckerPopup")
@@ -227,55 +316,85 @@ local function GetPopup()
     return popup
 end
 
-local function ShowPopup(currentName, wanted, matches, specID)
+local function ShowPopup(currentName, contentLabel, wanted, matches, specID)
     local p = GetPopup()
 
-    if #matches > 0 then
-        p.text:SetFormattedText("|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nSwitch to:", currentName)
-    else
-        p.text:SetFormattedText("|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nPlease switch to a '%s' loadout.", currentName, wanted)
-    end
+    local specIcon = select(4, GetSpecializationInfo(GetSpecialization() or 0))
+    p.icon:SetTexture(specIcon or 134400) -- question mark icon fallback
+    p.subtitle:SetFormattedText("Current loadout: |cFFFFFFFF%s|r", currentName)
 
-    local y = -22 - p.text:GetStringHeight() - 12
+    -- Header height depends on whether the subtitle wraps
+    local headerHeight = math.max(ICON_SIZE, 1 + p.title:GetStringHeight() + 4 + p.subtitle:GetStringHeight())
+    local y = -PADDING - headerHeight - 14
+
+    if #matches > 0 then
+        p.prompt:SetFormattedText("Pick a loadout for %s:", contentLabel)
+    else
+        p.prompt:SetFormattedText("None of your saved loadouts match %s ('%s'). Rename one or save a new one.", contentLabel, wanted)
+    end
+    p.prompt:ClearAllPoints()
+    p.prompt:SetPoint("TOPLEFT", PADDING, y)
+    y = y - p.prompt:GetStringHeight() - 8
+
+    local function PlaceButton(button)
+        button:ClearAllPoints()
+        button:SetPoint("TOPLEFT", PADDING, y)
+        button:SetPoint("TOPRIGHT", -PADDING, y)
+        button:Show()
+        y = y - BUTTON_HEIGHT - BUTTON_SPACING
+    end
 
     for i, match in ipairs(matches) do
         local button = p.loadoutButtons[i]
         if not button then
-            button = CreateFrame("Button", nil, p, "UIPanelButtonTemplate")
-            button:SetSize(BUTTON_WIDTH, BUTTON_HEIGHT)
+            button = CreateFlatButton(p)
             p.loadoutButtons[i] = button
         end
-        button:SetText(match.name)
+        button.label:SetText(match.name)
         button:SetScript("OnClick", function()
             if SwitchToLoadout(match.configID, specID) then
                 p:Hide()
             end
         end)
-        button:ClearAllPoints()
-        button:SetPoint("TOP", 0, y)
-        button:Show()
-        y = y - BUTTON_HEIGHT - BUTTON_SPACING
+        PlaceButton(button)
     end
     for i = #matches + 1, #p.loadoutButtons do
         p.loadoutButtons[i]:Hide()
     end
 
-    y = y - 8
-    p.closeButton:SetText(#matches > 0 and "Ignore" or "Close")
-    p.closeButton:ClearAllPoints()
-    p.closeButton:SetPoint("TOP", 0, y)
-    y = y - p.closeButton:GetHeight()
+    if #matches == 0 and PlayerSpellsUtil and PlayerSpellsUtil.OpenToClassTalentsTab then
+        PlaceButton(p.talentsButton)
+    else
+        p.talentsButton:Hide()
+    end
 
-    p:SetHeight(-y + 20)
-    p:Show()
+    p.dismissButton.label:SetText(#matches > 0 and "Not now" or "Close")
+    p.dismissButton.label:SetTextColor(0.5, 0.5, 0.5)
+    p.dismissButton:ClearAllPoints()
+    p.dismissButton:SetPoint("TOPRIGHT", -PADDING, y - 2)
+    y = y - 2 - p.dismissButton:GetHeight() - PADDING + 4
+
+    p:SetHeight(-y)
+    if not p:IsShown() then
+        p:Show()
+        p.fadeIn:Play()
+    end
 end
 
 local function HidePopups()
     if popup then popup:Hide() end
 end
 
+local function GetContentLabel(key)
+    for _, ct in ipairs(CONTENT_TYPES) do
+        if ct.key == key then return ct.label end
+    end
+    return key
+end
+
 local function ValidateLoadout()
-    local rule = db.content[GetContentType()]
+    local contentType = GetContentType()
+    local rule = db.content[contentType]
     if not rule or not rule.enabled then return end
 
     local keywords = ParseKeywords(rule.keywords)
@@ -296,7 +415,7 @@ local function ValidateLoadout()
 
     if db.playSound then PlaySound(8959) end
     if db.showPopup then
-        ShowPopup(currentName, wanted, FindMatchingLoadouts(specID, keywords), specID)
+        ShowPopup(currentName, GetContentLabel(contentType), wanted, FindMatchingLoadouts(specID, keywords), specID)
     end
     if db.showGlow then TriggerGlow() end
     if db.chatOnMismatch then

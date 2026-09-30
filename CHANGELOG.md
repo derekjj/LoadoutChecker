@@ -3,6 +3,7 @@
 ## v1.1.0
 
 - New: The mismatch popup lists your saved loadouts that match (e.g. "M+" and "M+ AoE"). Click one to switch to it
+- New: Redesigned popup with a modern, flat look, your spec icon, and buttons that highlight in your class color
 - New: Settings panel (/lc) with custom keywords, per-content toggles, and alert options
 - New: Delve & scenario support
 - New: /lc check to test your loadout any time
