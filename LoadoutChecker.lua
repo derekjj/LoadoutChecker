@@ -84,16 +84,6 @@ local function TriggerGlow()
     UIFrameFlash(glowFrame, 0.5, 0.5, -1, true, 0, 0)
 end
 
-StaticPopupDialogs["LOADOUTCHECKER_MISMATCH"] = {
-    text = "|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nPlease switch to a '%s' loadout.",
-    button1 = "Close",
-    OnAccept = StopGlow,
-    OnCancel = StopGlow,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-}
-
 ---------------------------------------------------------------------------
 -- Validation
 ---------------------------------------------------------------------------
@@ -108,20 +98,20 @@ local function GetContentType()
     return "mplus"
 end
 
--- Returns the active loadout name, or nil if talents aren't available yet
-local function GetCurrentLoadoutName()
+-- Returns the active loadout name and specID, or nil if talents aren't available yet
+local function GetCurrentLoadout()
     local specIndex = GetSpecialization()
     if not specIndex then return nil end
     local specID = GetSpecializationInfo(specIndex)
     if not specID then return nil end
 
     if C_ClassTalents.GetStarterBuildActive and C_ClassTalents.GetStarterBuildActive() then
-        return "Starter Build"
+        return "Starter Build", specID
     end
 
     local configID = C_ClassTalents.GetLastSelectedSavedConfigID(specID)
     local info = configID and C_Traits.GetConfigInfo(configID)
-    return info and info.name or "(unsaved loadout)"
+    return info and info.name or "(unsaved loadout)", specID
 end
 
 local function ParseKeywords(str)
@@ -141,6 +131,77 @@ local function NameMatches(name, keywords)
     return false
 end
 
+-- First saved loadout for this spec whose name matches a keyword
+local function FindMatchingLoadout(specID, keywords)
+    for _, configID in ipairs(C_ClassTalents.GetConfigIDsBySpecID(specID) or {}) do
+        local info = C_Traits.GetConfigInfo(configID)
+        if info and info.name and NameMatches(info.name, keywords) then
+            return configID, info.name
+        end
+    end
+end
+
+---------------------------------------------------------------------------
+-- Switching
+---------------------------------------------------------------------------
+
+local pendingSwitchName
+
+local function SwitchToLoadout(configID, specID)
+    if InCombatLockdown() then
+        Print("Can't change talents in combat.")
+        return
+    end
+
+    local info = C_Traits.GetConfigInfo(configID)
+    pendingSwitchName = info and info.name
+
+    -- Load through Blizzard's talent UI (same approach as ElvUI) so its loadout
+    -- dropdown stays in sync. Calling C_ClassTalents.LoadConfig directly swaps
+    -- the talents but leaves the dropdown showing the old loadout name.
+    if not PlayerSpellsFrame and PlayerSpellsFrame_LoadUI then
+        PlayerSpellsFrame_LoadUI()
+    end
+    local talentsFrame = PlayerSpellsFrame and PlayerSpellsFrame.TalentsFrame
+    if talentsFrame and talentsFrame.LoadConfigByPredicate then
+        talentsFrame:LoadConfigByPredicate(function(_, id) return id == configID end)
+    else
+        C_ClassTalents.LoadConfig(configID, true)
+        C_ClassTalents.UpdateLastSelectedSavedConfigID(specID, configID)
+    end
+end
+
+local POPUP_DEFAULTS = {
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+}
+
+-- No matching loadout saved: can only tell the player what to look for
+StaticPopupDialogs["LOADOUTCHECKER_MISMATCH"] = CreateFromMixins(POPUP_DEFAULTS, {
+    text = "|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nPlease switch to a '%s' loadout.",
+    button1 = "Close",
+    OnAccept = StopGlow,
+    OnCancel = StopGlow,
+})
+
+-- A matching loadout exists: offer to switch to it
+StaticPopupDialogs["LOADOUTCHECKER_SWITCH"] = CreateFromMixins(POPUP_DEFAULTS, {
+    text = "|cFFFF0000Loadout Mismatch!|r\nYou are on '%s'.\nSwitch to '%s'?",
+    button1 = "Switch",
+    button2 = "Ignore",
+    OnAccept = function(_, data)
+        StopGlow()
+        SwitchToLoadout(data.configID, data.specID)
+    end,
+    OnCancel = StopGlow,
+})
+
+local function HidePopups()
+    StaticPopup_Hide("LOADOUTCHECKER_MISMATCH")
+    StaticPopup_Hide("LOADOUTCHECKER_SWITCH")
+end
+
 local function ValidateLoadout()
     local rule = db.content[GetContentType()]
     if not rule or not rule.enabled then return end
@@ -148,7 +209,7 @@ local function ValidateLoadout()
     local keywords = ParseKeywords(rule.keywords)
     if #keywords == 0 then return end
 
-    local currentName = GetCurrentLoadoutName()
+    local currentName, specID = GetCurrentLoadout()
     if not currentName then return end
 
     if NameMatches(currentName, keywords) then
@@ -160,18 +221,21 @@ local function ValidateLoadout()
     end
 
     local wanted = table.concat(keywords, "' / '")
+    local matchID, matchName = FindMatchingLoadout(specID, keywords)
+
     if db.playSound then PlaySound(8959) end
-    if db.showPopup then StaticPopup_Show("LOADOUTCHECKER_MISMATCH", currentName, wanted) end
+    if db.showPopup then
+        HidePopups()
+        if matchID then
+            StaticPopup_Show("LOADOUTCHECKER_SWITCH", currentName, matchName, { configID = matchID, specID = specID })
+        else
+            StaticPopup_Show("LOADOUTCHECKER_MISMATCH", currentName, wanted)
+        end
+    end
     if db.showGlow then TriggerGlow() end
     if db.chatOnMismatch then
         Print("|cFFFF0000Mismatch!|r You are on '" .. currentName .. "', expected '" .. wanted .. "'.")
     end
-
-    -- TODO: Implement Loadout Switcher
-    -- Current Issues (Midnight 12.0.1):
-    -- 1. C_ClassTalents.LoadConfig swaps nodes but "ghosts" the UI name/dropdown.
-    -- 2. C_ClassTalents.SetSelection(id) is failing to update the UI pointer during Ready Check.
-    -- 3. Custom UI Frames are intermittently failing to :Hide() after API calls in this state.
 end
 
 ---------------------------------------------------------------------------
@@ -332,7 +396,15 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         self:UnregisterEvent("ADDON_LOADED")
     elseif event == "READY_CHECK" then
         C_Timer.After(0.6, ValidateLoadout)
-    elseif event == "PLAYER_REGEN_DISABLED" or event == "TRAIT_CONFIG_UPDATED" then
+    elseif event == "PLAYER_REGEN_DISABLED" then
         StopGlow()
+    elseif event == "TRAIT_CONFIG_UPDATED" then
+        -- Talents changed, so any open mismatch warning is out of date
+        StopGlow()
+        HidePopups()
+        if pendingSwitchName then
+            Print("|cFF00FF00Switched to|r " .. pendingSwitchName)
+            pendingSwitchName = nil
+        end
     end
 end)

@@ -2,6 +2,7 @@
 
 ## v1.1.0
 
+- New: One-click "Switch" button on the mismatch popup when you have a matching saved loadout
 - New: Settings panel (/lc) with custom keywords, per-content toggles, and alert options
 - New: Delve & scenario support
 - New: /lc check to test your loadout any time
