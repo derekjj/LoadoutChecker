@@ -23,6 +23,7 @@ local DEFAULTS = {
     showGlow       = true,
     chatOnMismatch = true,
     chatOnValid    = false,
+    announceSwitch = true,
     content = {
         mplus = { enabled = true, keywords = "m+" },
         raid  = { enabled = true, keywords = "raid" },
@@ -46,6 +47,21 @@ end
 
 local function Print(msg)
     print("|cFF33CCFF[Loadout Checker]:|r " .. msg)
+end
+
+-- Tell the group the addon caught a wrong loadout. Uses group chat rather than
+-- SAY, since addons can only send SAY inside instances.
+local function AnnounceSwitch(loadoutName)
+    local channel
+    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+        channel = "INSTANCE_CHAT"
+    elseif IsInRaid() then
+        channel = "RAID"
+    elseif IsInGroup() then
+        channel = "PARTY"
+    end
+    if not channel then return end
+    SendChatMessage("Loadout Checker saved me from the wrong talents! Switched to " .. loadoutName .. ".", channel)
 end
 
 ---------------------------------------------------------------------------
@@ -486,6 +502,7 @@ local function BuildSettingsPanel()
         { "showGlow",       "Flash the micro menu",    "Flash the micro menu bar until you close the popup, change talents or enter combat." },
         { "chatOnMismatch", "Chat message on mismatch", nil },
         { "chatOnValid",    "Chat message when valid", "Print a confirmation in chat when your loadout matches." },
+        { "announceSwitch", "Announce switches to group", "Tell your party/raid when you switch loadouts from the popup." },
     }
 
     local anchor = alertHeader
@@ -589,6 +606,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         HidePopups()
         if pendingSwitchName then
             Print("|cFF00FF00Switched to|r " .. pendingSwitchName)
+            if db.announceSwitch then AnnounceSwitch(pendingSwitchName) end
             pendingSwitchName = nil
         end
     end
